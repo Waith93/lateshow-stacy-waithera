@@ -2,10 +2,6 @@ from sqlalchemy.orm import relationship, validates
 from sqlalchemy_serializer import SerializerMixin
 from config import db
 
-from sqlalchemy.orm import relationship, validates
-from sqlalchemy_serializer import SerializerMixin
-from config import db
-
 class Episode(db.Model, SerializerMixin):
     __tablename__ = 'episodes'
 

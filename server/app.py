@@ -4,8 +4,7 @@ from flask import Flask, request, jsonify
 from flask_migrate import Migrate
 from flask_restful import Api, Resource
 from models import db, Episode, Guest, Appearance
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm.exc import NoResultFound
+
 
 app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///app.db"
@@ -37,19 +36,23 @@ class Guests(Resource):
 class Appearances(Resource):
     def post(self):
         data = request.get_json()
+
+        episode = Episode.query.get(data.get("episode_id"))
+        guest = Guest.query.get(data.get("guest_id"))
+
+        if not episode or not guest:
+            return {"errors": ["Invalid guest_id or episode_id"]}, 400
+
         try:
-            for key in ("rating", "episode_id", "guest_id"):
-                if key not in data:
-                    raise KeyError(f"Missing field: {key}")
+            rating = int(data.get("rating"))
+            if not 1 <= rating <= 5:
+                raise ValueError
+        except (TypeError, ValueError):
+            return {"errors": ["Rating must be an integer between 1 and 5"]}, 400
 
-            episode = Episode.query.get(data["episode_id"])
-            guest = Guest.query.get(data["guest_id"])
-
-            if not episode or not guest:
-                raise ValueError("Invalid guest_id or episode_id")
-
+        try:
             new_appearance = Appearance(
-                rating=data["rating"],
+                rating=rating,
                 episode_id=episode.id,
                 guest_id=guest.id
             )
@@ -57,16 +60,14 @@ class Appearances(Resource):
             db.session.add(new_appearance)
             db.session.commit()
 
-            response = {
+            return {
                 "id": new_appearance.id,
                 "rating": new_appearance.rating,
                 "guest_id": new_appearance.guest_id,
                 "episode_id": new_appearance.episode_id,
                 "episode": episode.to_dict(only=("id", "date", "number")),
                 "guest": guest.to_dict(only=("id", "name", "occupation"))
-            }
-
-            return response, 201
+            }, 201
 
         except (ValueError, KeyError) as e:
             return {"errors": [str(e)]}, 400
